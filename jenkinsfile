@@ -1,6 +1,13 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = 'nikhilabba12/satellite-network'
+        IMAGE_TAG  = 'latest'
+        CONTAINER_NAME = 'satellite-network-container'
+        REPORT_FILE = 'build-report.txt'
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -14,19 +21,90 @@ pipeline {
             }
         }
 
+        stage('Docker Build') {
+            steps {
+                bat '''
+                docker build -t %IMAGE_NAME%:%IMAGE_TAG% .
+                if %errorlevel% neq 0 exit /b %errorlevel%
+                '''
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-creds',
+                    usernameVariable: 'DOCKER_USER',
+                    passwordVariable: 'DOCKER_PASS'
+                )]) {
+                    bat '''
+                    echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
+                    if %errorlevel% neq 0 exit /b %errorlevel%
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat '''
+                docker push %IMAGE_NAME%:%IMAGE_TAG%
+                if %errorlevel% neq 0 exit /b %errorlevel%
+                '''
+            }
+        }
+
+        stage('Docker Pull') {
+            steps {
+                bat '''
+                docker pull %IMAGE_NAME%:%IMAGE_TAG%
+                if %errorlevel% neq 0 exit /b %errorlevel%
+                '''
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                bat '''
+                docker rm -f %CONTAINER_NAME% 2>nul
+                docker run -d -p 8081:80 --name %CONTAINER_NAME% %IMAGE_NAME%:%IMAGE_TAG%
+                if %errorlevel% neq 0 exit /b %errorlevel%
+                '''
+            }
+        }
+
         stage('Build Report') {
             steps {
-                bat 'echo Build successful > build-report.txt'
+                bat '''
+                echo ============================== > %REPORT_FILE%
+                echo Satellite Network Build Report >> %REPORT_FILE%
+                echo ============================== >> %REPORT_FILE%
+                echo Image Name  : %IMAGE_NAME% >> %REPORT_FILE%
+                echo Image Tag   : %IMAGE_TAG% >> %REPORT_FILE%
+                echo Container   : %CONTAINER_NAME% >> %REPORT_FILE%
+                echo Port        : 8081:80 >> %REPORT_FILE%
+                echo. >> %REPORT_FILE%
+                echo Stages completed successfully: >> %REPORT_FILE%
+                echo 1. Docker Build >> %REPORT_FILE%
+                echo 2. Docker Login >> %REPORT_FILE%
+                echo 3. Docker Push >> %REPORT_FILE%
+                echo 4. Docker Pull >> %REPORT_FILE%
+                echo 5. Run Container >> %REPORT_FILE%
+                echo. >> %REPORT_FILE%
+                echo Build finished successfully. >> %REPORT_FILE%
+                '''
             }
         }
     }
 
     post {
         success {
-            archiveArtifacts artifacts: 'build-report.txt', fingerprint: true
+            echo 'Pipeline completed successfully'
         }
         failure {
-            bat 'echo Build failed > build-report.txt'
+            echo 'Pipeline failed'
+        }
+        always {
             archiveArtifacts artifacts: 'build-report.txt', fingerprint: true
         }
     }
