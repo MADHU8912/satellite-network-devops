@@ -1,0 +1,67 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = 'nikhilabba12/satellite-network'
+        IMAGE_TAG  = 'latest'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Check Files') {
+            steps {
+                bat 'dir'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker build -t %IMAGE_NAME%:%IMAGE_TAG% .'
+            }
+        }
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    bat 'echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin'
+                }
+            }
+        }
+
+        stage('Docker Push') {
+            steps {
+                bat 'docker push %IMAGE_NAME%:%IMAGE_TAG%'
+            }
+        }
+
+        stage('Docker Pull') {
+            steps {
+                bat 'docker pull %IMAGE_NAME%:%IMAGE_TAG%'
+            }
+        }
+
+        stage('Run Container') {
+            steps {
+                bat 'docker rm -f satellite-network-container || exit /b 0'
+                bat 'docker run -d -p 8081:80 --name satellite-network-container %IMAGE_NAME%:%IMAGE_TAG%'
+            }
+        }
+
+        stage('Build Report') {
+            steps {
+                bat 'echo Build, Push, Pull, and Run completed successfully > build-report.txt'
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'build-report.txt', fingerprint: true
+        }
+    }
+}
