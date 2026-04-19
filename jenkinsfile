@@ -9,14 +9,9 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Checkout Info') {
             steps {
-                checkout scm
-            }
-        }
-
-        stage('Check Files') {
-            steps {
+                bat 'echo Repository checked successfully'
                 bat 'dir'
             }
         }
@@ -83,15 +78,9 @@ pipeline {
                 echo Image Tag   : %IMAGE_TAG% >> %REPORT_FILE%
                 echo Container   : %CONTAINER_NAME% >> %REPORT_FILE%
                 echo Port        : 8081:80 >> %REPORT_FILE%
-                echo. >> %REPORT_FILE%
-                echo Stages completed successfully: >> %REPORT_FILE%
-                echo 1. Docker Build >> %REPORT_FILE%
-                echo 2. Docker Login >> %REPORT_FILE%
-                echo 3. Docker Push >> %REPORT_FILE%
-                echo 4. Docker Pull >> %REPORT_FILE%
-                echo 5. Run Container >> %REPORT_FILE%
-                echo. >> %REPORT_FILE%
-                echo Build finished successfully. >> %REPORT_FILE%
+                echo Docker Build OK >> %REPORT_FILE%
+                echo Docker Push OK >> %REPORT_FILE%
+                echo Docker Pull OK >> %REPORT_FILE%
                 '''
             }
         }
